@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -25,6 +26,15 @@ def run(script_path: str, stage: str) -> int:
     return 0
 
 
+def _write_empty_report(project_dir: Path, summary: str) -> None:
+    try:
+        (project_dir / "cc-review-report.json").write_text(
+            f'{{"summary": {json.dumps(summary)}, "findings": []}}', encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
 def _run_review(jc: JobContext, codes: ExitCodes) -> int:
     project_dir_str = jc.env("CI_PROJECT_DIR")
     if not project_dir_str:
@@ -40,19 +50,19 @@ def _run_review(jc: JobContext, codes: ExitCodes) -> int:
         diff_text, stats = diff.compute(jc, rules_obj)
     except Exception as e:
         logx.error(f"diff failed: {e}")
+        _write_empty_report(project_dir, f"Diff failed: {e}")
         return codes.system_failure
 
     if not diff_text.strip():
         logx.info("No reviewable changes in this push (after include/exclude filtering).")
-        (project_dir / "cc-review-report.json").write_text(
-            '{"summary": "No reviewable changes.", "findings": []}', encoding="utf-8"
-        )
+        _write_empty_report(project_dir, "No reviewable changes.")
         return 0
 
     try:
         report = review.run(rules_obj, diff_text)
     except Exception as e:
         logx.error(f"claude review failed: {e}")
+        _write_empty_report(project_dir, f"Review failed: {e}")
         return codes.system_failure
 
     try:
