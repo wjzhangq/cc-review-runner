@@ -136,11 +136,22 @@ def run(r: Rules, diff: str) -> Report:
 
 
 def parse_report(raw: str) -> dict[str, object]:
+    data = _parse_json(raw)
+    if data.get("type") == "result" and "result" in data:
+        inner = data["result"]
+        if isinstance(inner, str):
+            data = _parse_json(inner)
+        elif isinstance(inner, dict):
+            data = inner
+    return data
+
+
+def _parse_json(text: str) -> dict[str, object]:
     try:
-        return json.loads(raw)  # type: ignore[return-value]
+        return json.loads(text)  # type: ignore[return-value]
     except json.JSONDecodeError:
         pass
-    stripped = _FENCE_RE.sub("", raw).strip()
+    stripped = _FENCE_RE.sub("", text).strip()
     return json.loads(stripped)  # type: ignore[return-value]
 
 
