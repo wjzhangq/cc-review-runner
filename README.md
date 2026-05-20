@@ -101,6 +101,10 @@ model: claude-sonnet-4-5
 
 ### GitLab CI (`.gitlab-ci.yml`)
 
+#### Custom Executor（推荐）
+
+Runner 配置为 `executor = "custom"` 时使用。`step_script` 阶段由 cc-review-runner 接管，`script` 字段仅为占位：
+
 ```yaml
 review:
   tags: [cc-review]
@@ -112,6 +116,28 @@ review:
     paths: [cc-review-report.json]
     expire_in: 30 days
 ```
+
+#### Shell Executor
+
+Runner 配置为 `executor = "shell"` 时使用。需要在 `script` 中显式调用 cc-review-runner：
+
+```yaml
+review:
+  tags: [cc-review]
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - cc-review-runner prepare
+    - cc-review-runner run /dev/null step_script
+  artifacts:
+    when: always
+    paths: [cc-review-report.json]
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+```
+
+> Shell Executor 模式下，runner 主机需要确保 `cc-review-runner` 在 PATH 中，且 `ANTHROPIC_API_KEY` 等环境变量已设置（通过 `config.toml` 的 `environment` 或 GitLab CI/CD Variables）。
 
 ### 自定义提示词（Custom Prompt）
 
@@ -280,19 +306,25 @@ sudo gitlab-runner verify   # 应该显示 runner 处于 alive 状态
 
 在仓库根目录添加两个文件：
 
-**`.gitlab-ci.yml`**（最简配置）：
+**`.gitlab-ci.yml`**（Shell Executor）：
 
 ```yaml
 review:
   tags: [cc-review]          # 必须与 runner 的 tag 匹配
-  script: [":"]              # 占位 — Custom Executor 在 step_script 阶段会忽略此字段
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - cc-review-runner prepare
+    - cc-review-runner run /dev/null step_script
   artifacts:
     when: always
     paths: [cc-review-report.json]
     expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
 ```
+
+> 如果 runner 使用 Custom Executor，将 `script` 替换为 `script: [":"]` 即可。
 
 **`.claude-review.yml`**（可选，不存在则用默认值）：
 
