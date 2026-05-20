@@ -97,10 +97,12 @@ def run(r: Rules, diff: str) -> Report:
             logx.warn(f"failed to write debug dump: {e}")
 
     verbose = os.environ.get("CC_REVIEW_VERBOSE", "").strip().lower() in ("1", "true", "yes")
+
+    logx.info(f"claude CLI completed (exit={result.returncode}, stdout={len(result.stdout)} chars, stderr={len(result.stderr)} chars)")
     if verbose:
-        logx.info(f"claude CLI stdout length: {len(result.stdout)} chars")
         if result.stderr.strip():
             logx.info(f"claude CLI stderr: {result.stderr.strip()[:500]}")
+        logx.info(f"claude CLI raw output (first 1000 chars): {result.stdout[:1000]}")
 
     if result.returncode != 0:
         logx.error(f"claude CLI exited with {result.returncode}")
@@ -114,11 +116,22 @@ def run(r: Rules, diff: str) -> Report:
         data = parse_report(result.stdout)
     except (json.JSONDecodeError, ValueError) as e:
         logx.error(f"failed to parse claude output: {e}")
-        logx.error(f"raw output: {result.stdout[:2000]}")
+        logx.error(f"raw output (first 2000 chars):\n{result.stdout[:2000]}")
         raise RuntimeError(f"claude output parse error: {e}") from e
 
     report = _build_report(data)
     report.model = model
+
+    if not report.findings and not report.summary:
+        logx.warn(
+            f"model returned empty results (0 findings, no summary). "
+            f"The model may not support the expected output format. "
+            f"Raw output length: {len(result.stdout)} chars"
+        )
+        if not verbose:
+            logx.warn(f"raw output (first 500 chars): {result.stdout[:500]}")
+            logx.warn("set CC_REVIEW_VERBOSE=1 for full diagnostics")
+
     return report
 
 
