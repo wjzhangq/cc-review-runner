@@ -40,12 +40,14 @@ class Finding:
 class Report:
     findings: list[Finding]
     summary: str
+    model: str = ""
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "summary": self.summary,
                 "findings": [f.to_dict() for f in self.findings],
+                "model": self.model,
             },
             ensure_ascii=False,
             indent=2,
@@ -94,6 +96,12 @@ def run(r: Rules, diff: str) -> Report:
         except OSError as e:
             logx.warn(f"failed to write debug dump: {e}")
 
+    verbose = os.environ.get("CC_REVIEW_VERBOSE", "").strip().lower() in ("1", "true", "yes")
+    if verbose:
+        logx.info(f"claude CLI stdout length: {len(result.stdout)} chars")
+        if result.stderr.strip():
+            logx.info(f"claude CLI stderr: {result.stderr.strip()[:500]}")
+
     if result.returncode != 0:
         logx.error(f"claude CLI exited with {result.returncode}")
         if result.stderr.strip():
@@ -109,7 +117,9 @@ def run(r: Rules, diff: str) -> Report:
         logx.error(f"raw output: {result.stdout[:2000]}")
         raise RuntimeError(f"claude output parse error: {e}") from e
 
-    return _build_report(data)
+    report = _build_report(data)
+    report.model = model
+    return report
 
 
 def parse_report(raw: str) -> dict[str, object]:

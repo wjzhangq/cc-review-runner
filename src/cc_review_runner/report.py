@@ -42,7 +42,7 @@ def render(out: TextIO, report: Report, stats: Stats, rules: Rules) -> None:
     for f in report.findings:
         counts[f.severity] = counts.get(f.severity, 0) + 1
 
-    model = rules.model or os.environ.get("CC_REVIEW_DEFAULT_MODEL", "claude-sonnet-4-5")
+    model = report.model or rules.model or os.environ.get("CC_REVIEW_DEFAULT_MODEL", "claude-sonnet-4-5")
 
     print(sep, file=out)
     print("  Claude Code Review Report", file=out)
@@ -75,7 +75,10 @@ def render(out: TextIO, report: Report, stats: Stats, rules: Rules) -> None:
         print(f"  Fix   : {f.suggestion}", file=out)
 
     print(f"\n{thin}", file=out)
-    print(f"  Summary: {report.summary}", file=out)
+    if report.summary:
+        print(f"  Summary: {report.summary}", file=out)
+    else:
+        print("  Summary: (none provided by model)", file=out)
     print(sep, file=out)
 
 
