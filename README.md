@@ -113,6 +113,111 @@ review:
     expire_in: 30 days
 ```
 
+### 自定义提示词（Custom Prompt）
+
+通过 `.claude-review.yml` 的 `custom_prompt` 字段，可以向 review 提示词追加自定义指令：
+
+```yaml
+version: 1
+
+custom_prompt: |
+  This service handles PII — flag any logging of personal data.
+  All database queries must use parameterized statements.
+  Prefer returning early over deeply nested if-else.
+```
+
+`custom_prompt` 会被原样追加到内置提示词末尾（diff 之前），适合补充项目特有的规范或关注点。
+
+也可以通过环境变量 `CC_REVIEW_CUSTOM_PROMPT` 覆盖（优先级高于配置文件）。
+
+#### focus 字段
+
+`focus` 是一个列表，用于告诉 Claude 重点关注哪些方面。不设置时默认关注 "general code quality"：
+
+```yaml
+focus:
+  - security
+  - error-handling
+  - resource-leak
+  - concurrency
+  - sql-injection
+```
+
+### Skills
+
+Skills 是安装在 runner 主机上的可复用 review 规则包，通过 `--skill` 参数传递给 `claude` CLI。
+
+#### 创建 Skill
+
+每个 skill 是一个目录，包含一个 `SKILL.md` 文件：
+
+```
+/etc/cc-review/skills/
+├── secret-scanning/
+│   └── SKILL.md
+├── sql-injection-hunter/
+│   └── SKILL.md
+└── go-review/
+    └── SKILL.md
+```
+
+`SKILL.md` 示例（`secret-scanning`）：
+
+```markdown
+# Secret Scanning
+
+Detect hardcoded secrets, API keys, tokens, and credentials in the diff.
+
+## Rules
+
+- Flag any string matching common secret patterns (AWS keys, GitHub tokens, JWTs, private keys)
+- Flag environment variable values that appear to be real secrets rather than placeholders
+- Severity: blocker for production credentials, high for test/dev credentials
+- Ignore: example values like "sk-ant-...", "REPLACE_ME", "xxx"
+```
+
+Skill 名称必须匹配 `[a-z0-9][a-z0-9_-]*`。
+
+#### 在 runner 主机上安装 Skill
+
+```bash
+sudo mkdir -p /etc/cc-review/skills/secret-scanning
+sudo tee /etc/cc-review/skills/secret-scanning/SKILL.md <<'EOF'
+# Secret Scanning
+...
+EOF
+```
+
+#### 配置 runner 允许的 Skills
+
+在 `config.toml` 的 `environment` 中设置白名单（不设置则允许所有已安装的 skill）：
+
+```toml
+environment = [
+  "CC_REVIEW_SKILLS_ROOT=/etc/cc-review/skills",
+  "CC_REVIEW_SKILLS_ALLOWED=secret-scanning,sql-injection-hunter,go-review",
+]
+```
+
+| 变量 | 说明 |
+|---|---|
+| `CC_REVIEW_SKILLS_ROOT` | Skill 目录根路径，默认 `/etc/cc-review/skills` |
+| `CC_REVIEW_SKILLS_ALLOWED` | 逗号分隔的白名单，为空表示允许所有 |
+
+#### 在仓库中启用 Skills
+
+在 `.claude-review.yml` 中声明要使用的 skill：
+
+```yaml
+skills:
+  - secret-scanning
+  - sql-injection-hunter
+```
+
+只有同时满足以下条件的 skill 才会生效：
+1. runner 主机上 `CC_REVIEW_SKILLS_ROOT` 目录下存在对应目录且包含 `SKILL.md`
+2. skill 名称在 `CC_REVIEW_SKILLS_ALLOWED` 白名单中（或白名单为空）
+
 ## 快速上手：从零部署到第一次 Review
 
 ### 第一步：在 runner 主机上准备依赖
