@@ -104,6 +104,7 @@ model: claude-sonnet-4-5
 ```yaml
 review:
   tags: [cc-review]
+  script: [":"]  # placeholder — Custom Executor ignores this during step_script
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
   artifacts:
@@ -179,6 +180,7 @@ sudo gitlab-runner verify   # 应该显示 runner 处于 alive 状态
 ```yaml
 review:
   tags: [cc-review]          # 必须与 runner 的 tag 匹配
+  script: [":"]              # 占位 — Custom Executor 在 step_script 阶段会忽略此字段
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
   artifacts:
