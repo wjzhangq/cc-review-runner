@@ -96,7 +96,10 @@ def run(r: Rules, diff: str) -> Report:
 
     if result.returncode != 0:
         logx.error(f"claude CLI exited with {result.returncode}")
-        logx.error(f"stderr: {result.stderr.strip()}")
+        if result.stderr.strip():
+            logx.error(f"stderr: {result.stderr.strip()}")
+        if result.stdout.strip():
+            logx.error(f"stdout: {result.stdout[:2000]}")
         raise RuntimeError(f"claude CLI failed with exit code {result.returncode}")
 
     try:
