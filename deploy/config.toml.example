@@ -1,0 +1,45 @@
+# /etc/gitlab-runner/config.toml
+concurrent = 4
+check_interval = 10
+log_level = "info"
+
+[[runners]]
+  name  = "cc-review-01"
+  url   = "https://gitlab.example.com/"
+  token = "REPLACE_WITH_RUNNER_AUTH_TOKEN"
+
+  executor   = "custom"
+  builds_dir = "/var/lib/gitlab-runner/cc-review-work"
+  cache_dir  = "/var/lib/gitlab-runner/cc-review-cache"
+
+  environment = [
+    "CC_REVIEW_DEFAULT_MODEL=claude-sonnet-4-5",
+    "CC_REVIEW_TIMEOUT_SECONDS=600",
+    "CC_REVIEW_SKILLS_ROOT=/etc/cc-review/skills",
+    "CC_REVIEW_SKILLS_ALLOWED=go-review,sql-injection-hunter,secret-scanning",
+    "ANTHROPIC_API_KEY=sk-ant-...",
+    "ANTHROPIC_BASE_URL=http://modelgate.internal:8080",
+  ]
+
+  [runners.custom_build_dir]
+  [runners.cache]
+
+  [runners.custom]
+    # Use the absolute path produced by: sudo -u gitlab-runner which cc-review-runner
+    config_exec          = "/var/lib/gitlab-runner/.local/bin/cc-review-runner"
+    config_args          = ["config"]
+    config_exec_timeout  = 60
+
+    prepare_exec         = "/var/lib/gitlab-runner/.local/bin/cc-review-runner"
+    prepare_args         = ["prepare"]
+    prepare_exec_timeout = 300
+
+    run_exec             = "/var/lib/gitlab-runner/.local/bin/cc-review-runner"
+    run_args             = ["run"]
+
+    cleanup_exec         = "/var/lib/gitlab-runner/.local/bin/cc-review-runner"
+    cleanup_args         = ["cleanup"]
+    cleanup_exec_timeout = 120
+
+    graceful_kill_timeout = 30
+    force_kill_timeout    = 10
