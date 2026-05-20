@@ -44,6 +44,9 @@ def _run_review(jc: JobContext, codes: ExitCodes) -> int:
 
     if not diff_text.strip():
         logx.info("No reviewable changes in this push (after include/exclude filtering).")
+        (project_dir / "cc-review-report.json").write_text(
+            '{"summary": "No reviewable changes.", "findings": []}', encoding="utf-8"
+        )
         return 0
 
     try:
