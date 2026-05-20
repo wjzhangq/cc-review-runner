@@ -64,7 +64,7 @@ def run(r: Rules, diff: str) -> Report:
 
     prompt = build_prompt(r, skill_paths)
 
-    model = r.model or os.environ.get("CC_REVIEW_DEFAULT_MODEL", "claude-sonnet-4-5")
+    model = r.model or os.environ.get("CC_REVIEW_DEFAULT_MODEL", "MinMax-M2.7")
     timeout = int(os.environ.get("CC_REVIEW_TIMEOUT_SECONDS", "600"))
 
     cmd = [claude_bin, "-p", prompt, "--output-format", "json"]
